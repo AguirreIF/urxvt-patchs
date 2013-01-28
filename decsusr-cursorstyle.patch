@@ -1,0 +1,202 @@
+diff --git a/src/command.C b/src/command.C
+index 277b6e3..270f6da 100644
+--- a/src/command.C
++++ b/src/command.C
+@@ -2807,6 +2807,7 @@ rxvt_term::process_csi_seq ()
+   unsigned int nargs, p;
+   int n, ndef;
+   int arg[ESC_ARGS] = { };
++  int space_arg = -1;
+ 
+   nargs = 0;
+ 
+@@ -2837,6 +2838,9 @@ rxvt_term::process_csi_seq ()
+         }
+       else if (IS_CONTROL (ch))
+         process_nonprinting (ch);
++      else if (ch == ' ') {
++        space_arg = nargs;
++      }
+ 
+       ch = cmd_getc ();
+     }
+@@ -3081,6 +3085,12 @@ rxvt_term::process_csi_seq ()
+           priv_modes |= PrivMode_LFNL;
+         break;
+ 
++      case CSI_71:
++        // space arg (CSI Ps SP q) is for "Set cursor style (DECSURS, VT520) specification"
++        // without   (CSI Ps q) sits for "Load LEDs (DECLL)"
++        if (space_arg == 0)
++          this->set_cursor_style (arg[0]);
++        break;
+         /*
+          * PRIVATE USE beyond this point.  All CSI_7? sequences here
+          */
+@@ -3326,6 +3336,52 @@ rxvt_term::process_color_seq (int report, int color, const char *str, char resp)
+     set_window_color (color, str);
+ }
+ 
++void
++rxvt_term::set_cursor_style (int style)
++{
++  switch (style)
++    {
++      case 3: // Blinking Underline
++      case 4: // Steady Underline
++#ifdef ENABLE_CURSORSHAPE
++        screen.cursorShape = 1;
++        set_option (Opt_cursorUnderline, 0);
++#else
++        set_option (Opt_cursorUnderline, 1);
++#endif
++#ifdef CURSOR_BLINK
++        set_option (Opt_cursorBlink, style==3?1:0);
++#endif
++        break;
++
++      case 5: // Blinking Bar
++      case 6: // Steady Bar
++        set_option (Opt_cursorUnderline, 0);
++#ifdef ENABLE_CURSORSHAPE
++        screen.cursorShape = 2;
++#endif
++#ifdef CURSOR_BLINK
++        set_option (Opt_cursorBlink, style==5?1:0);
++#endif
++        break;
++
++      case 0: // Blinking Block
++      case 1: // Blinking Block
++      case 2: // Steady Block
++      default:
++#ifdef ENABLE_CURSORSHAPE
++        screen.cursorShape = 0;
++#endif
++        set_option (Opt_cursorUnderline, 0);
++#ifdef CURSOR_BLINK
++        set_option (Opt_cursorBlink, style==2?0:1);
++#endif
++  }
++#ifdef CURSOR_BLINK
++  this->cursor_blink_reset ();
++#endif
++}
++
+ /*
+  * XTerm escape sequences: ESC ] Ps;Pt (ST|BEL)
+  */
+diff --git a/src/rxvt.h b/src/rxvt.h
+index 39fdc2e..0edb318 100644
+--- a/src/rxvt.h
++++ b/src/rxvt.h
+@@ -62,6 +62,7 @@ typedef  int32_t tlen_t_; // specifically for use in the line_t structure
+ # define CURSOR_BLINK         1
+ # define OPTION_HC            1
+ # define BUILTIN_GLYPHS       1
++# define ENABLE_CURSORSHAPE   1
+ #else
+ # define ENABLE_MINIMAL 1
+ #endif
+@@ -1021,6 +1022,9 @@ struct screen_t
+   unsigned int    s_charset;    /* saved character set number [0..3]         */
+   char            s_charset_char;
+   rend_t          s_rstyle;     /* saved rendition style                     */
++#if ENABLE_CURSORSHAPE
++  int             cursorShape;
++#endif
+ };
+ 
+ enum selection_op_t
+@@ -1399,6 +1403,7 @@ struct rxvt_term : zero_initialized, rxvt_vars, rxvt_screen
+   void process_osc_seq ();
+   void process_color_seq (int report, int color, const char *str, char resp);
+   void process_xterm_seq (int op, char *str, char resp);
++  void set_cursor_style (int style);
+   int privcases (int mode, unsigned long bit);
+   void process_terminal_mode (int mode, int priv, unsigned int nargs, const int *arg);
+   void process_sgr_mode (unsigned int nargs, const int *arg);
+diff --git a/src/screen.C b/src/screen.C
+index 0773225..fc0441f 100644
+--- a/src/screen.C
++++ b/src/screen.C
+@@ -2115,6 +2115,11 @@ rxvt_term::scr_refresh () NOTHROW
+ 
+         if (focus)
+           {
++#ifdef ENABLE_CURSORSHAPE
++        if (screen.cursorShape)
++          *crp ^= RS_RVid;
++        else
++#endif
+             if (option (Opt_cursorUnderline))
+               *crp ^= RS_Uline;
+             else
+@@ -2246,6 +2251,9 @@ rxvt_term::scr_refresh () NOTHROW
+       for (col = 0; col < ncol; col++)
+         {
+           /* compare new text with old - if exactly the same then continue */
++#ifdef ENABLE_CURSORSHAPE
++          bool isCursorShaped = (showcursor && screen.cursorShape && col==screen.cur.col && row==screen.cur.row);
++#endif
+           if (stp[col] == dtp[col]    /* Must match characters to skip. */
+               && (RS_SAME (srp[col], drp[col])    /* Either rendition the same or   */
+                   || (stp[col] == ' ' /* space w/ no background change  */
+@@ -2313,6 +2321,9 @@ rxvt_term::scr_refresh () NOTHROW
+           int back = bgcolor_of (rend); // desired background
+ 
+           // only do special processing if any attributes are set, which is unlikely
++#ifdef ENABLE_CURSORSHAPE
++        if (!isCursorShaped)
++#endif
+           if (ecb_unlikely (rend & (RS_baseattrMask | RS_Careful | RS_Sel)))
+             {
+               bool invert = rend & RS_RVid;
+@@ -2442,6 +2453,35 @@ rxvt_term::scr_refresh () NOTHROW
+                          xpixel, ypixel + font->ascent + 1,
+                          xpixel + Width2Pixel (count) - 1, ypixel + font->ascent + 1);
+             }
++
++#ifdef ENABLE_CURSORSHAPE
++          if (isCursorShaped) {
++#ifndef NO_CURSORCOLOR
++            if (ISSET_PIXCOLOR (Color_cursor))
++              XSetForeground (dpy, gc, pix_colors[Color_cursor]);
++            else
++#endif
++              XSetForeground (dpy, gc, pix_colors[ccol1]);
++
++            switch (screen.cursorShape)
++              {
++                case 2:
++                  XDrawLine (
++                      dpy, vt, gc,
++                      Col2Pixel (col), Row2Pixel (row),
++                      Col2Pixel (col), Row2Pixel (row)+Height2Pixel (1)-font->descent-1);
++                  break;
++
++                case 1:
++                default:
++                  XFillRectangle (dpy, vt, gc,
++                      Col2Pixel (col),
++                      Row2Pixel (row)+Height2Pixel(1)-font->descent,
++                      Width2Pixel (1),
++                      2);
++              }
++          }
++#endif
+         }                     /* for (col....) */
+     }                         /* for (row....) */
+ 
+@@ -2452,6 +2492,11 @@ rxvt_term::scr_refresh () NOTHROW
+     {
+       if (focus)
+         {
++#ifdef ENABLE_CURSORSHAPE
++      if (screen.cursorShape)
++            *crp ^= RS_RVid;
++      else
++#endif
+           if (option (Opt_cursorUnderline))
+             *crp ^= RS_Uline;
+           else

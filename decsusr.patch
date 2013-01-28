@@ -1,0 +1,74 @@
+diff --git a/src/command.C b/src/command.C
+index 277b6e3..78aabeb 100644
+--- a/src/command.C
++++ b/src/command.C
+@@ -2807,6 +2807,7 @@ rxvt_term::process_csi_seq ()
+   unsigned int nargs, p;
+   int n, ndef;
+   int arg[ESC_ARGS] = { };
++  int space_arg = -1;
+ 
+   nargs = 0;
+ 
+@@ -2837,6 +2838,9 @@ rxvt_term::process_csi_seq ()
+         }
+       else if (IS_CONTROL (ch))
+         process_nonprinting (ch);
++      else if (ch == ' ') {
++        space_arg = nargs;
++      }
+ 
+       ch = cmd_getc ();
+     }
+@@ -3081,6 +3085,13 @@ rxvt_term::process_csi_seq ()
+           priv_modes |= PrivMode_LFNL;
+         break;
+ 
++      case CSI_71:		/* DECSUSR, VT520 */
++        // space arg (CSI Ps SP q) is for "Set cursor style (DECSURS, VT520) specification"
++        // without   (CSI Ps q) sits for "Load LEDs (DECLL)"
++        if (space_arg == 0)
++          this->set_cursor_style (arg[0]);
++        break;
++
+         /*
+          * PRIVATE USE beyond this point.  All CSI_7? sequences here
+          */
+@@ -3326,6 +3337,37 @@ rxvt_term::process_color_seq (int report, int color, const char *str, char resp)
+     set_window_color (color, str);
+ }
+ 
++void
++rxvt_term::set_cursor_style (int style)
++{
++  switch (style)
++    {
++      case 3: // Blinking Underline
++      case 4: // Steady Underline
++        set_option (Opt_cursorUnderline, 1);
++#ifdef CURSOR_BLINK
++        set_option (Opt_cursorBlink, style==3?1:0);
++#endif
++        break;
++
++      case 5: // Blinking Bar
++      case 6: // Steady Bar
++      // No vertical bar cursor in urxvt
++
++      case 0: // Blinking Block
++      case 1: // Blinking Block
++      case 2: // Steady Block
++      default:
++        set_option (Opt_cursorUnderline, 0);
++#ifdef CURSOR_BLINK
++        set_option (Opt_cursorBlink, style==2?0:1);
++#endif
++    }
++#ifdef CURSOR_BLINK
++  this->cursor_blink_reset ();
++#endif
++}
++
+ /*
+  * XTerm escape sequences: ESC ] Ps;Pt (ST|BEL)
+  */
