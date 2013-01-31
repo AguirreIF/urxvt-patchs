@@ -1,0 +1,114 @@
+diff --git a/src/command.C b/src/command.C
+index 277b6e3..6e0d272 100644
+--- a/src/command.C
++++ b/src/command.C
+@@ -3887,6 +3887,10 @@ rxvt_term::process_sgr_mode (unsigned int nargs, const int *arg)
+             // invisible. NYI
+             break;
+           //case 9: // crossed out
++          case 10:
++            rendset = 1, rendstyle = RS_Blink;
++            break;
++
+           //case 10: // scoansi acs off, primary font
+           //case 11: // scoansi acs on, first alt font
+           //case 12: // scoansi acs on, |0x80, second alt font
+diff --git a/src/rsinc.h b/src/rsinc.h
+index 1483955..e6613ac 100644
+--- a/src/rsinc.h
++++ b/src/rsinc.h
+@@ -80,6 +80,7 @@
+   def (letterSpace)
+   def (cursorUnderline)
+   def (urgentOnBell)
++  def (underlinePosition)
+ #endif
+ #if BUILTIN_GLYPHS
+   def (skipBuiltinGlyphs)
+diff --git a/src/screen.C b/src/screen.C
+index 0773225..f34ef4b 100644
+--- a/src/screen.C
++++ b/src/screen.C
+@@ -2043,6 +2043,11 @@ rxvt_term::scr_refresh () NOTHROW
+ 
+   want_refresh = 0;        /* screen is current */
+ 
++  int underlinePosition = 1;
++
++  if (rs[Rs_underlinePosition])
++    underlinePosition = atoi(rs[Rs_underlinePosition]);
++
+   if (refresh_type == NO_REFRESH || !mapped)
+     return;
+ 
+@@ -2429,6 +2434,26 @@ rxvt_term::scr_refresh () NOTHROW
+           else
+             font->draw (*drawable, xpixel, ypixel, text, count, fore, back);
+ 
++#ifndef TEXT_BLINK
++          if (ecb_unlikely (rend & RS_Blink && font->descent > 1 && fore != back))
++            {
++#if ENABLE_FRILLS
++              if (ISSET_PIXCOLOR (Color_underline))
++                XSetForeground (dpy, gc, pix_colors[Color_underline]);
++              else
++#endif
++                XSetForeground (dpy, gc, pix_colors[fore]);
++
++              static const int	val[8] = {1, 0, 0, 0, 1, 2, 2, 2 };
++
++              for (i = 0; i < Width2Pixel(count); ++i)
++                {
++                  int offset = val[i % 8];
++                  XDrawPoint(dpy, vt, gc,
++                  xpixel+i, ypixel + font->ascent - offset + underlinePosition);
++                }
++              } else
++#endif
+           if (ecb_unlikely (rend & RS_Uline && font->descent > 1 && fore != back))
+             {
+ #if ENABLE_FRILLS
+@@ -2438,9 +2463,29 @@ rxvt_term::scr_refresh () NOTHROW
+ #endif
+                 XSetForeground (dpy, gc, pix_colors[fore]);
+ 
++#ifndef TEXT_BLINK
++              if (rend & RS_Blink)
++              {
++#if ENABLE_FRILLS
++                if (ISSET_PIXCOLOR (Color_underline))
++                  XSetForeground (dpy, gc, pix_colors[Color_underline]);
++                else
++#endif
++                  XSetForeground (dpy, gc, pix_colors[fore]);
++
++                static const int	val[8] = {1, 0, 0, 0, 1, 2, 2, 2 };
++
++                for (i = 0; i < Width2Pixel(count); ++i)
++                  {
++                    int offset = val[i % 8];
++                    XDrawPoint(dpy, vt, gc,
++                    xpixel+i, ypixel + font->ascent - offset + underlinePosition);
++                  }
++              } else
++#endif
+               XDrawLine (dpy, vt, gc,
+-                         xpixel, ypixel + font->ascent + 1,
+-                         xpixel + Width2Pixel (count) - 1, ypixel + font->ascent + 1);
++                         xpixel, ypixel + font->ascent + underlinePosition,
++                         xpixel + Width2Pixel (count) - 1, ypixel + font->ascent + underlinePosition);
+             }
+         }                     /* for (col....) */
+     }                         /* for (row....) */
+diff --git a/src/xdefaults.C b/src/xdefaults.C
+index 69acdd8..46058a9 100644
+--- a/src/xdefaults.C
++++ b/src/xdefaults.C
+@@ -177,6 +177,7 @@ optList[] = {
+ #endif /* ! NO_BOLD_UNDERLINE_REVERSE */
+ #if ENABLE_FRILLS
+               RSTRG (Rs_color + Color_underline, "underlineColor", "color"),
++              STRG (Rs_underlinePosition, "underlinePosition", "up", "number", "Underline position"),
+ #endif
+               RSTRG (Rs_color + Color_scroll, "scrollColor", "color"),
+ #ifdef RXVT_SCROLLBAR

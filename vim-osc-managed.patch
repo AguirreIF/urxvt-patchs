@@ -1,0 +1,17 @@
+diff --git a/src/os_unix.c b/src/os_unix.c
+index c82e593..903b744 100644
+--- a/src/os_unix.c
++++ b/src/os_unix.c
+@@ -3346,6 +3346,12 @@ mch_setmouse(on)
+ 		   (on
+ 		   ? IF_EB("\033[?1015h", ESC_STR "[?1015h")
+ 		   : IF_EB("\033[?1015l", ESC_STR "[?1015l")));
++        // YB {{{
++	out_str_nf((char_u *)
++		   (on
++		   ? IF_EB("\033]777;managed;on\007",  ESC_STR "]777;managed;on" (char_u *)"\077")
++		   : IF_EB("\033]777;managed;off\007", ESC_STR "]777;managed;off" (char_u *)"\077")));
++        // }}}
+ 	ison = on;
+     }
+ # endif

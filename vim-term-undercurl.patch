@@ -1,0 +1,65 @@
+diff --git a/src/option.c b/src/option.c
+index f38e9c7..becc3b0 100644
+--- a/src/option.c
++++ b/src/option.c
+@@ -2910,6 +2910,8 @@ static struct vimoption
+     p_term("t_ti", T_TI)
+     p_term("t_ue", T_UE)
+     p_term("t_us", T_US)
++    p_term("t_Ce", T_UCE)
++    p_term("t_Cs", T_UCS)
+     p_term("t_vb", T_VB)
+     p_term("t_ve", T_VE)
+     p_term("t_vi", T_VI)
+diff --git a/src/screen.c b/src/screen.c
+index 6d2345c..325b43b 100644
+--- a/src/screen.c
++++ b/src/screen.c
+@@ -7346,8 +7346,9 @@ screen_start_highlight(attr)
+ 		out_str(T_ME);
+ 	    if ((attr & HL_STANDOUT) && T_SO != NULL)	/* standout */
+ 		out_str(T_SO);
+-	    if ((attr & (HL_UNDERLINE | HL_UNDERCURL)) && T_US != NULL)
+-						   /* underline or undercurl */
++	    if ((attr & HL_UNDERCURL) && T_UCS != NULL) /* undercurl */
++		out_str(T_UCS);
++	    if ((attr & HL_UNDERLINE) && T_US != NULL) /* underline */
+ 		out_str(T_US);
+ 	    if ((attr & HL_ITALIC) && T_CZH != NULL)	/* italic */
+ 		out_str(T_CZH);
+@@ -7442,13 +7443,21 @@ screen_stop_highlight()
+ 		else
+ 		    out_str(T_SE);
+ 	    }
+-	    if (screen_attr & (HL_UNDERLINE | HL_UNDERCURL))
++	    if (screen_attr & HL_UNDERLINE)
+ 	    {
+ 		if (STRCMP(T_UE, T_ME) == 0)
+ 		    do_ME = TRUE;
+ 		else
+ 		    out_str(T_UE);
+ 	    }
++	    if (screen_attr & HL_UNDERCURL)
++	    {
++		if (T_UCE==NULL) {
++                    do_ME = TRUE;
++                } else {
++		    out_str(T_UCE);
++                }
++	    }
+ 	    if (screen_attr & HL_ITALIC)
+ 	    {
+ 		if (STRCMP(T_CZR, T_ME) == 0)
+diff --git a/src/term.c b/src/term.c
+index 2c0d35a..eb1ba11 100644
+--- a/src/term.c
++++ b/src/term.c
+@@ -896,6 +896,8 @@ static struct builtin_term builtin_termcaps[] =
+     {(int)KS_MR,	IF_EB("\033[7m", ESC_STR "[7m")},
+     {(int)KS_MD,	IF_EB("\033[1m", ESC_STR "[1m")},
+     {(int)KS_UE,	IF_EB("\033[m", ESC_STR "[m")},
++    {(int)KS_UCS,	IF_EB("\033[4m", ESC_STR "[4m")},
++    {(int)KS_UCE,	IF_EB("\033[m", ESC_STR "[m")},
+     {(int)KS_US,	IF_EB("\033[4m", ESC_STR "[4m")},
+     {(int)KS_MS,	"y"},
+     {(int)KS_UT,	"y"},
