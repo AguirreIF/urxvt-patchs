@@ -1,13 +1,13 @@
 diff --git a/src/command.C b/src/command.C
-index 277b6e3..6e0d272 100644
+index 277b6e3..a5cda69 100644
 --- a/src/command.C
 +++ b/src/command.C
 @@ -3887,6 +3887,10 @@ rxvt_term::process_sgr_mode (unsigned int nargs, const int *arg)
              // invisible. NYI
              break;
            //case 9: // crossed out
-+          case 10:
-+            rendset = 1, rendstyle = RS_Blink;
++          case 10: // Fake undercurl
++            rendset = 1, rendstyle = RS_Blink | RS_Uline;
 +            break;
 +
            //case 10: // scoansi acs off, primary font
@@ -26,7 +26,7 @@ index 1483955..e6613ac 100644
  #if BUILTIN_GLYPHS
    def (skipBuiltinGlyphs)
 diff --git a/src/screen.C b/src/screen.C
-index 0773225..f34ef4b 100644
+index 0773225..b3f69cf 100644
 --- a/src/screen.C
 +++ b/src/screen.C
 @@ -2043,6 +2043,11 @@ rxvt_term::scr_refresh () NOTHROW
@@ -41,7 +41,7 @@ index 0773225..f34ef4b 100644
    if (refresh_type == NO_REFRESH || !mapped)
      return;
  
-@@ -2429,6 +2434,26 @@ rxvt_term::scr_refresh () NOTHROW
+@@ -2429,6 +2434,30 @@ rxvt_term::scr_refresh () NOTHROW
            else
              font->draw (*drawable, xpixel, ypixel, text, count, fore, back);
  
@@ -55,20 +55,24 @@ index 0773225..f34ef4b 100644
 +#endif
 +                XSetForeground (dpy, gc, pix_colors[fore]);
 +
-+              static const int	val[8] = {1, 0, 0, 0, 1, 2, 2, 2 };
-+
-+              for (i = 0; i < Width2Pixel(count); ++i)
++              if (rend & RS_Uline)
 +                {
-+                  int offset = val[i % 8];
-+                  XDrawPoint(dpy, vt, gc,
-+                  xpixel+i, ypixel + font->ascent - offset + underlinePosition);
++                  static const int	val[8] = {1, 0, 0, 0, 1, 2, 2, 2 };
++
++                  for (i = 0; i < Width2Pixel(count); ++i)
++                    {
++                      int offset = val[i % 8];
++                      XDrawPoint(dpy, vt, gc,
++                      xpixel+i, ypixel + font->ascent - offset + underlinePosition +1);
++                    }
 +                }
-+              } else
++            }
++          else
 +#endif
            if (ecb_unlikely (rend & RS_Uline && font->descent > 1 && fore != back))
              {
  #if ENABLE_FRILLS
-@@ -2438,9 +2463,29 @@ rxvt_term::scr_refresh () NOTHROW
+@@ -2438,9 +2467,29 @@ rxvt_term::scr_refresh () NOTHROW
  #endif
                  XSetForeground (dpy, gc, pix_colors[fore]);
  
