@@ -1,8 +1,8 @@
 diff --git a/src/command.C b/src/command.C
-index 277b6e3..a5cda69 100644
+index 82ad10a..b0eebc5 100644
 --- a/src/command.C
 +++ b/src/command.C
-@@ -3887,6 +3887,10 @@ rxvt_term::process_sgr_mode (unsigned int nargs, const int *arg)
+@@ -3885,6 +3885,10 @@ rxvt_term::process_sgr_mode (unsigned int nargs, const int *arg)
              // invisible. NYI
              break;
            //case 9: // crossed out
@@ -13,89 +13,175 @@ index 277b6e3..a5cda69 100644
            //case 10: // scoansi acs off, primary font
            //case 11: // scoansi acs on, first alt font
            //case 12: // scoansi acs on, |0x80, second alt font
+diff --git a/src/init.C b/src/init.C
+index 95cc777..5294da4 100644
+--- a/src/init.C
++++ b/src/init.C
+@@ -513,6 +513,9 @@ static const char *const def_colorName[] =
+ #if ENABLE_FRILLS
+     NULL,			// Color_underline
+ #endif
++#if ENABLE_FRILLS
++    NULL,			// Color_undercurl
++#endif
+ #ifdef OPTION_HC
+     NULL,
+     NULL,
+@@ -1062,6 +1065,8 @@ rxvt_term::get_colours ()
+       if (!name)
+         continue;
+ 
++      fprintf(stderr, "%s\n", name);
++
+       rxvt_color xcol;
+ 
+       if (!set_color (xcol, name))
+@@ -1148,6 +1153,7 @@ rxvt_term::get_colours ()
+   for (i = 0; i < (depth <= 2 ? 2 : NRS_COLORS); i++)
+     update_fade_color (i);
+ #endif
++
+ }
+ 
+ /*----------------------------------------------------------------------*/
+diff --git a/src/optinc.h b/src/optinc.h
+index d814035..fa9df0d 100644
+--- a/src/optinc.h
++++ b/src/optinc.h
+@@ -41,6 +41,9 @@
+  nodef(override_redirect)
+  nodef(urgentOnBell)
+ #endif
++#if ENABLE_FRILLS
++ def(undercurlStoleColor)
++#endif
+ #ifdef BUILTIN_GLYPHS
+  def(skipBuiltinGlyphs) // do not use internal glyphs
+ #else
 diff --git a/src/rsinc.h b/src/rsinc.h
-index 1483955..e6613ac 100644
+index 1483955..8ee9480 100644
 --- a/src/rsinc.h
 +++ b/src/rsinc.h
-@@ -80,6 +80,7 @@
-   def (letterSpace)
+@@ -81,6 +81,13 @@
    def (cursorUnderline)
    def (urgentOnBell)
-+  def (underlinePosition)
  #endif
++#if ENABLE_FRILLS
++  def (underlinePosition)
++  def (underlineFade)
++  def (undercurlPosition)
++  def (undercurlFade)
++  def (undercurlStoleColor)
++#endif
  #if BUILTIN_GLYPHS
    def (skipBuiltinGlyphs)
+ #endif
+diff --git a/src/rxvt.h b/src/rxvt.h
+index f6ae411..7d4492a 100644
+--- a/src/rxvt.h
++++ b/src/rxvt.h
+@@ -583,6 +583,9 @@ enum colour_list {
+ #if ENABLE_FRILLS
+   Color_underline,
+ #endif
++#if ENABLE_FRILLS
++  Color_undercurl,
++#endif
+ #ifdef OPTION_HC
+   Color_HC,
+   Color_HTC,
 diff --git a/src/screen.C b/src/screen.C
-index 0773225..b3f69cf 100644
+index ed42ea7..b0f6d3b 100644
 --- a/src/screen.C
 +++ b/src/screen.C
-@@ -2043,6 +2043,11 @@ rxvt_term::scr_refresh () NOTHROW
+@@ -2051,6 +2051,16 @@ rxvt_term::scr_refresh () NOTHROW
  
    want_refresh = 0;        /* screen is current */
  
++#ifdef ENABLE_FRILLS
 +  int underlinePosition = 1;
-+
 +  if (rs[Rs_underlinePosition])
 +    underlinePosition = atoi(rs[Rs_underlinePosition]);
++  int undercurlPosition=1;
++  if (rs[Rs_undercurlPosition])
++    undercurlPosition = atoi(rs[Rs_undercurlPosition]);
++  rxvt_color  undercurlColor;
++#endif
 +
    if (refresh_type == NO_REFRESH || !mapped)
      return;
  
-@@ -2429,6 +2434,30 @@ rxvt_term::scr_refresh () NOTHROW
+@@ -2398,6 +2408,13 @@ rxvt_term::scr_refresh () NOTHROW
+                   else if (hidden_text)
+                     fore = back;
+                 }
++#else
++          undercurlColor = pix_colors[fore];
++          if (rend & RS_Blink && rend && RS_Uline && option (Opt_undercurlStoleColor))
++            {
++              fore = Color_fg;
++            }
++
+ #endif
+ 
+ #if ENABLE_STYLES
+@@ -2441,18 +2458,59 @@ rxvt_term::scr_refresh () NOTHROW
            else
              font->draw (*drawable, xpixel, ypixel, text, count, fore, back);
  
++#if ENABLE_FRILLS
 +#ifndef TEXT_BLINK
 +          if (ecb_unlikely (rend & RS_Blink && font->descent > 1 && fore != back))
 +            {
-+#if ENABLE_FRILLS
-+              if (ISSET_PIXCOLOR (Color_underline))
-+                XSetForeground (dpy, gc, pix_colors[Color_underline]);
-+              else
-+#endif
-+                XSetForeground (dpy, gc, pix_colors[fore]);
-+
++              // Handle undercurl
 +              if (rend & RS_Uline)
 +                {
++                  if (!option (Opt_undercurlStoleColor)) {
++                    if (ISSET_PIXCOLOR (Color_undercurl))
++                      undercurlColor = pix_colors[Color_undercurl];
++                    else
++                      if (rs[Rs_undercurlFade])
++                        {
++                          int percent = atoi(rs[Rs_undercurlFade]);
++                          pix_colors[fore].fade(this, percent, pix_colors[Color_undercurl]);
++                          undercurlColor  = pix_colors[Color_undercurl];
++                        }
++                  }
++                  XSetForeground (dpy, gc, undercurlColor);
 +                  static const int	val[8] = {1, 0, 0, 0, 1, 2, 2, 2 };
 +
 +                  for (i = 0; i < Width2Pixel(count); ++i)
 +                    {
 +                      int offset = val[i % 8];
 +                      XDrawPoint(dpy, vt, gc,
-+                      xpixel+i, ypixel + font->ascent - offset + underlinePosition +1);
++                      xpixel+i, ypixel + font->ascent - offset + undercurlPosition +1);
 +                    }
 +                }
 +            }
 +          else
 +#endif
++#endif
            if (ecb_unlikely (rend & RS_Uline && font->descent > 1 && fore != back))
              {
- #if ENABLE_FRILLS
-@@ -2438,9 +2467,29 @@ rxvt_term::scr_refresh () NOTHROW
- #endif
-                 XSetForeground (dpy, gc, pix_colors[fore]);
- 
-+#ifndef TEXT_BLINK
-+              if (rend & RS_Blink)
-+              {
-+#if ENABLE_FRILLS
-+                if (ISSET_PIXCOLOR (Color_underline))
-+                  XSetForeground (dpy, gc, pix_colors[Color_underline]);
-+                else
-+#endif
-+                  XSetForeground (dpy, gc, pix_colors[fore]);
-+
-+                static const int	val[8] = {1, 0, 0, 0, 1, 2, 2, 2 };
-+
-+                for (i = 0; i < Width2Pixel(count); ++i)
+-#if ENABLE_FRILLS
++              int underlinePosition=1;
++              rxvt_color color = pix_colors[fore];
++#ifdef ENABLE_FRILLS
++              if (rs[Rs_underlinePosition])
++                underlinePosition = atoi(rs[Rs_underlinePosition]);
+               if (ISSET_PIXCOLOR (Color_underline))
+-                XSetForeground (dpy, gc, pix_colors[Color_underline]);
++                color = pix_colors[Color_underline];
+               else
++                if (rs[Rs_underlineFade])
 +                  {
-+                    int offset = val[i % 8];
-+                    XDrawPoint(dpy, vt, gc,
-+                    xpixel+i, ypixel + font->ascent - offset + underlinePosition);
++                    int percent = atoi(rs[Rs_underlineFade]);
++                    pix_colors[fore].fade(this, percent, color);
 +                  }
-+              } else
-+#endif
+ #endif
+-                XSetForeground (dpy, gc, pix_colors[fore]);
++              XSetForeground (dpy, gc, color);
+ 
                XDrawLine (dpy, vt, gc,
 -                         xpixel, ypixel + font->ascent + 1,
 -                         xpixel + Width2Pixel (count) - 1, ypixel + font->ascent + 1);
@@ -105,14 +191,22 @@ index 0773225..b3f69cf 100644
          }                     /* for (col....) */
      }                         /* for (row....) */
 diff --git a/src/xdefaults.C b/src/xdefaults.C
-index 69acdd8..46058a9 100644
+index 69acdd8..0b4ccf2 100644
 --- a/src/xdefaults.C
 +++ b/src/xdefaults.C
-@@ -177,6 +177,7 @@ optList[] = {
- #endif /* ! NO_BOLD_UNDERLINE_REVERSE */
+@@ -178,6 +178,15 @@ optList[] = {
  #if ENABLE_FRILLS
                RSTRG (Rs_color + Color_underline, "underlineColor", "color"),
-+              STRG (Rs_underlinePosition, "underlinePosition", "up", "number", "Underline position"),
  #endif
++#if ENABLE_FRILLS
++              STRG (Rs_underlinePosition, "underlinePosition", "ulp", "number", "Underline position"),
++              STRG (Rs_underlineFade, "underlineFade", "ulf", "number", "Underline fading factor (default 0)"),
++
++              RSTRG (Rs_color + Color_undercurl, "undercurlColor", "color"),
++              STRG (Rs_undercurlPosition, "undercurlPosition", "ulp", "number", "Undercurl position"),
++              STRG (Rs_undercurlFade, "undercurlFade", "ucf", "number", "Undercurl fading factor (default 0)"),
++              BOOL (Rs_undercurlStoleColor, "undercurlStoleColor", "ucsc", Opt_undercurlStoleColor, 0, "Stole color from text to colorize undercurl"),
++#endif
                RSTRG (Rs_color + Color_scroll, "scrollColor", "color"),
  #ifdef RXVT_SCROLLBAR
+               RSTRG (Rs_color + Color_trough, "troughColor", "color"),
