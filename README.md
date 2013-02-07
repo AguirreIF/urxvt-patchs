@@ -112,6 +112,9 @@ are :
     - Add a set of buts for each characters allowing to define the underline (or whatever
       underline style defines) color.
 
+  * Now it's possible to set the all palette with ~/.Xdefault
+      URxvt.color125: #FF00FF
+
 Vim Patchs
 ==========
 
